@@ -1,11 +1,191 @@
-<!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bootstrap demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
 </head>
-<body>
-    
+
+<body class="d-flex flex-column align-items-center justify-content-center gap-4 min-vh-100">
+
+    <div class="card p-4" style="max-width:420px; width:100%; background-color: rgba(4, 0, 255, 0.12);">
+        <h2 class="h5 mb-3 text-center">Inscription</h2>
+        <form id="signupForm" class="w-100" novalidate>
+            <div class="mb-3">
+                <label for="email" class="form-label">Adresse email</label>
+                <input type="email" class="form-control" id="email" name="email" placeholder="Email" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Mot de passe</label>
+                <input type="password" class="form-control" id="password" name="mdp" placeholder="Mot de passe"
+                    autocomplete="new-password" pattern="^(?=.{8,}$)(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$"
+                    title="Au moins 8 caractères, 1 minuscule, 1 majuscule et 1 symbole" required>
+                <div class="invalid-feedback">
+                    Le mot de passe doit contenir au moins 8 caractères, une minuscule, une majuscule et un symbole.
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="date" class="form-label">Date de naissance</label>
+                <input type="date" class="form-control" id="date" name="date_naissance" max="2025-10-21" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Connexion</button>
+        </form>
+    </div>
+
+    <div class="container">
+        <h3 class="h6 mb-2 text-center">Utilisateurs enregistrés</h3>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0" id="usersTable">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Date de naissance</th>
+                        <th scope="col">Inscrit le</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- lignes ajoutées dynamiquement -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <footer>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+            crossorigin="anonymous"></script>
+
+        <script>
+            // IIFE nommée : validation du mot de passe (isole le scope)
+            (function passwordValidation() {
+                // sélectionne le premier formulaire et l'input password
+                const form = document.querySelector('form');
+                const pwd = document.getElementById('password');
+
+                // regex : au moins 8 caractères, au moins 1 minuscule, 1 majuscule, 1 caractère non alphanumérique
+                const re = /^(?=.{8,}$)(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$/;
+
+                // écoute les changements dans le champ mot de passe
+                pwd.addEventListener('input', () => {
+                    pwd.setCustomValidity('');        // réinitialise tout message personnalisé
+                    pwd.classList.remove('is-invalid'); // retire la classe d'erreur visuelle
+                    // si la valeur existe et ne correspond pas à la regex, marque comme invalide
+                    if (pwd.value && !re.test(pwd.value)) {
+                        pwd.setCustomValidity('Mot de passe invalide'); // message pour reportValidity()
+                        pwd.classList.add('is-invalid');                // classe Bootstrap pour le visuel
+                    }
+                });
+
+                // avant la soumission du formulaire, vérifier le mot de passe et bloquer si nécessaire
+                form.addEventListener('submit', (e) => {
+                    if (!re.test(pwd.value)) {
+                        e.preventDefault();    // empêche l'envoi du formulaire
+                        e.stopPropagation();   // stop la propagation de l'événement submit
+                        pwd.reportValidity();  // demande au navigateur d'afficher le message de validation
+                        pwd.classList.add('is-invalid'); // ajout visuel d'erreur
+                    }
+                });
+            })();
+
+
+            // IIFE nommée : gestion du stockage local des utilisateurs et rendu du tableau
+            (function usersStorageModule() {
+                // références aux éléments du DOM utilisés
+                const form = document.getElementById('signupForm');
+                const email = document.getElementById('email');
+                const pwd = document.getElementById('password');
+                const date = document.getElementById('date');
+
+                // clé utilisée dans localStorage
+                const STORAGE_KEY = 'projet2_users';
+
+                // lit et parse les utilisateurs depuis localStorage, renvoie [] en cas d'erreur
+                function loadUsers() {
+                    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+                    catch { return []; }
+                }
+
+                // stringifie et écrit le tableau d'utilisateurs dans localStorage
+                function saveUsers(users) {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+                }
+
+                // échappe les caractères spéciaux pour éviter insertion HTML lors du rendu
+                function escapeHtml(s) {
+                    return String(s)
+                        .replaceAll('&', '&amp;')
+                        .replaceAll('<', '&lt;')
+                        .replaceAll('>', '&gt;')
+                        .replaceAll('"', '&quot;')
+                        .replaceAll("'", '&#39;');
+                }
+
+                // reconstruit le <tbody> du tableau à partir des utilisateurs chargés
+                function renderUsers() {
+                    const users = loadUsers();                              // charge les données
+                    const tbody = document.querySelector('#usersTable tbody'); // cible le tbody
+                    tbody.innerHTML = '';                                   // vide le tbody avant rendu
+
+                    // ajoute une ligne par utilisateur
+                    users.forEach((u, i) => {
+                        const tr = document.createElement('tr');            // crée une <tr>
+                        tr.innerHTML = `
+                    <th scope="row">${i + 1}</th>
+                    <td>${escapeHtml(u.email)}</td>
+                    <td>${escapeHtml(u.date_naissance || '')}</td>
+                    <td>${escapeHtml(u.registeredAt)}</td>
+                `;                                                 // template de la ligne
+                        tbody.appendChild(tr);                             // insère la ligne dans le DOM
+                    });
+                }
+
+                // regex de validation mot de passe (réutilisée pour le feedback visuel)
+                const rePwd = /^(?=.{8,}$)(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$/;
+                pwd.addEventListener('input', () => {
+                    pwd.setCustomValidity('');        // réinitialise message personnalisé
+                    pwd.classList.remove('is-invalid'); // retire classe d'erreur
+                    if (pwd.value && !rePwd.test(pwd.value)) {
+                        pwd.setCustomValidity('Mot de passe invalide'); // message déclenché par reportValidity()
+                        pwd.classList.add('is-invalid');                // style d'erreur Bootstrap
+                    }
+                });
+
+                // gestion de la soumission du formulaire : validation native puis stockage local
+                form.addEventListener('submit', (e) => {
+                    // si le formulaire n'est pas valide selon HTML5, afficher les erreurs et stop
+                    if (!form.checkValidity()) {
+                        e.preventDefault();           // empêche l'envoi
+                        e.stopPropagation();          // stop la propagation
+                        form.classList.add('was-validated'); // active les styles Bootstrap de validation
+                        return;                       // quitte la fonction
+                    }
+
+                    e.preventDefault(); // empêche l'envoi (on ne contacte pas de serveur)
+
+                    // création d'un objet utilisateur (mot de passe non stocké)
+                    const users = loadUsers();
+                    const newUser = {
+                        email: email.value.trim(),
+                        date_naissance: date.value || null,
+                        registeredAt: new Date().toLocaleString() // date d'inscription lisible
+                    };
+
+                    users.push(newUser);    // ajoute l'utilisateur au tableau
+                    saveUsers(users);       // sauvegarde dans localStorage
+                    renderUsers();          // met à jour l'affichage du tableau
+
+                    form.reset();           // réinitialise le formulaire
+                    form.classList.remove('was-validated'); // réinitialise les styles de validation
+                });
+
+                // rendu initial au chargement de la page
+                renderUsers();
+            })();
+        </script>
+    </footer>
 </body>
+
 </html>
